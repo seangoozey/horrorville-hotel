@@ -3,7 +3,7 @@
 /android/
 /data
 /builds
-/addons
+/addons/*
 *.tmp
 *.bak
 *.orig
