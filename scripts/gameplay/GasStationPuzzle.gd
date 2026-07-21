@@ -1,18 +1,22 @@
 # res://scripts/gameplay/GasStationPuzzle.gd
 extends Node
 
-@export var hint_label: Label
-@export var debug_label: Label
+signal update_wrench(n: Node, enabled: bool)
+
 
 @export var wrench: Area2D
 @export var window: Area2D
 @export var breakers: Area2D
 @export var door_latch: Area2D
-@export var generator: Area2D
+@export var door_wall_collision: CollisionPolygon2D
+@export var open_door_wall_collision: Node
+@export var door_mask: Area2D
+@export var door_open_mask: Area2D
+@export var wire_coil: Area2D
 
 # require slime blob distance > threshold
-@export var slime_blob: ColorRect
-@export var wrench_safe_distance := 90.0
+@export var slime_blob: CharacterBody2D
+@export var wrench_safe_distance := 50.0
 
 func _ready() -> void:
 	# connect interactables
@@ -20,16 +24,14 @@ func _ready() -> void:
 	(window as Area2D).interacted.connect(_on_interacted)
 	(breakers as Area2D).interacted.connect(_on_interacted)
 	(door_latch as Area2D).interacted.connect(_on_interacted)
-	(generator as Area2D).interacted.connect(_on_interacted)
 
-	GameState.power_mode_changed.connect(_refresh_ui)
-	GameState.flag_changed.connect(func(_f,_v): _refresh_ui())
-	_refresh_ui()
+	InputRouter.switch_character_requested.connect(_on_switch_character_requested)
+	GameState.flag_changed.connect(_on_flag_changed)
+	_apply_wire_coil_state()
+	call_deferred("_apply_cellar_door_repair_state")
+	_update_slime_trap_plan()
 
-func _unhandled_input(event: InputEvent) -> void:
-	if not event.is_action_pressed("switch_character"):
-		return
-
+func _on_switch_character_requested() -> void:
 	# Gate switching until GSA is discovered
 	if not GameState.get_flag("gsa_discovered"):
 		return
@@ -53,6 +55,8 @@ func _on_interacted(id: String) -> void:
 				GameState.set_flag("wrench_passed", true)
 
 		"breakers":
+			if GameState.get_flag("power_permanently_off"):
+				return
 			# GSA only (set allowed_character on interactable)
 			# Toggle between GRID_ON and POWER_OFF; generator mode is separate.
 			if GameState.power_mode == GameState.PowerMode.GRID_ON:
@@ -62,7 +66,7 @@ func _on_interacted(id: String) -> void:
 			elif GameState.power_mode == GameState.PowerMode.GENERATOR_ON:
 				# If generator is running, breakers still represent "grid" state.
 				# For MVP: disallow toggling while generator on.
-				pass
+				return
 
 		"wrench":
 			# Journalist only (set allowed_character on interactable)
@@ -77,54 +81,86 @@ func _on_interacted(id: String) -> void:
 				return
 			Inventory.give("wrench")
 			GameState.set_flag("wrench_found", true)
+			update_wrench.emit(wrench,false)
 
 		"door_latch":
 			# GSA only; requires wrench_passed
+			# If the journalist reaches the latch first, they discover the GSA.
+			if not GameState.get_flag("gsa_discovered"):
+				GameState.set_flag("gsa_discovered", true)
 			if not GameState.get_flag("wrench_passed"):
 				return
 			if GameState.get_flag("gsa_freed"):
 				return
 			GameState.set_flag("gsa_freed", true)
+			_apply_cellar_door_repair_state()
 
-		"generator":
-			# GSA only; generator should only be started after GSA freed
-			if not GameState.get_flag("gsa_freed"):
-				return
-			# Final configuration you want: pumps off, slime dead.
-			# We'll enforce: must cut grid power first, then start generator.
-			if GameState.power_mode != GameState.PowerMode.POWER_OFF:
-				return
-			GameState.set_power_mode(GameState.PowerMode.GENERATOR_ON)
-			# In MVP, we can mark slime dead after a short delay; see SlimeSystem
-			# Pumps disabled flag could be set once generator on and grid off
-			GameState.set_flag("pumps_disabled", true)
+func _on_flag_changed(flag: String, value: bool) -> void:
+	if not value:
+		return
+	if flag == "generator_fixed" \
+			or flag == "interactable_cellar_detritus_examine_used" \
+			or flag == "interactable_sign_post_examine_used":
+		_update_slime_trap_plan()
+	elif flag == "slime_trap_plan":
+		_apply_wire_coil_state()
 
-func _refresh_ui(_new_mode:int=0) -> void:
-	if hint_label:
-		hint_label.text = _get_hint_text()
-	if debug_label:
-		debug_label.text = "Char: %s | Power: %s | flags: %s" % [
-			GameState.active_character_id,
-			_power_name(GameState.power_mode),
-			str(GameState.flags)
-		]
+func _update_slime_trap_plan() -> void:
+	if GameState.get_flag("slime_trap_plan"):
+		return
+	if GameState.get_flag("generator_fixed") \
+			and GameState.get_flag("interactable_cellar_detritus_examine_used") \
+			and GameState.get_flag("interactable_sign_post_examine_used"):
+		GameState.set_flag("slime_trap_plan", true)
 
-func _power_name(m: int) -> String:
-	match m:
-		GameState.PowerMode.GRID_ON: return "GRID_ON"
-		GameState.PowerMode.POWER_OFF: return "POWER_OFF"
-		GameState.PowerMode.GENERATOR_ON: return "GENERATOR_ON"
-	return "?"
+func _apply_wire_coil_state() -> void:
+	if wire_coil == null:
+		return
+	var enabled := GameState.get_flag("slime_trap_plan")
+	_set_node_lock_recursive(wire_coil, not enabled)
+	wire_coil.visible = enabled
+	_set_node_enabled_recursive(wire_coil, enabled)
 
-func _get_hint_text() -> String:
-	if not GameState.get_flag("gsa_discovered"):
-		return "Find the source of the banging."
-	if not GameState.get_flag("wrench_found"):
-		return "Cut power, lure the slime away, grab the wrench."
-	if not GameState.get_flag("wrench_passed"):
-		return "Bring the wrench to the window."
-	if not GameState.get_flag("gsa_freed"):
-		return "Switch to the attendant and force the latch."
-	if not GameState.get_flag("slime_dead"):
-		return "Cut grid power, then start the generator."
-	return "Done."
+func _apply_cellar_door_repair_state() -> void:
+	var door_open := GameState.get_flag("gsa_freed")
+	if door_wall_collision != null:
+		_set_node_enabled_recursive(door_wall_collision, not door_open)
+	var open_wall := _get_open_door_wall_collision()
+	if open_wall != null:
+		_set_node_enabled_recursive(open_wall, door_open)
+	if door_mask != null:
+		_set_node_enabled_recursive(door_mask, not door_open)
+	if door_open_mask != null:
+		_set_node_enabled_recursive(door_open_mask, door_open)
+
+func _get_open_door_wall_collision() -> Node:
+	if open_door_wall_collision != null:
+		return open_door_wall_collision
+	var root := owner if owner != null else get_tree().current_scene
+	if root == null:
+		return null
+	return root.find_child("OpenDoorWallCollision", true, false)
+
+func _set_node_lock_recursive(n: Node, locked: bool) -> void:
+	n.set_meta("layer_lock_disabled", locked)
+	for child in n.get_children():
+		_set_node_lock_recursive(child, locked)
+
+func _set_node_enabled_recursive(n: Node, enabled: bool) -> void:
+	if n.has_method("set_mask_enabled"):
+		n.call("set_mask_enabled", enabled)
+	if n is Area2D:
+		var a := n as Area2D
+		a.set_deferred("monitoring", enabled)
+		a.set_deferred("monitorable", enabled)
+	if n is CollisionObject2D:
+		var c := n as CollisionObject2D
+		c.set_deferred("disabled", not enabled)
+	if n is CollisionShape2D:
+		var cs := n as CollisionShape2D
+		cs.set_deferred("disabled", not enabled)
+	if n is CollisionPolygon2D:
+		var cp := n as CollisionPolygon2D
+		cp.set_deferred("disabled", not enabled)
+	for child in n.get_children():
+		_set_node_enabled_recursive(child, enabled)

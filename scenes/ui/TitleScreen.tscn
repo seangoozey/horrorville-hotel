@@ -1,0 +1,142 @@
+[gd_scene load_steps=9 format=3 uid="uid://b3prhvdtfsv6p"]
+
+[ext_resource type="Script" uid="uid://cxvfpg8es04d" path="res://scripts/ui/TitleScreen.gd" id="1_title_screen"]
+[ext_resource type="Texture2D" uid="uid://d82q2yobjn1b" path="res://data/sprites/title_background.png" id="2_j2lur"]
+[ext_resource type="LabelSettings" uid="uid://bs2p4x5uc0tod" path="res://data/res/SelectedLabel.tres" id="3_selected"]
+[ext_resource type="Texture2D" uid="uid://bwvx60pflhb0d" path="res://data/sprites/title_overlay.png" id="3_tbfit"]
+[ext_resource type="FontFile" uid="uid://dw05wi3scl0rc" path="res://data/res/NothingYouCouldDo-Regular.ttf" id="4_options_font"]
+[ext_resource type="LabelSettings" uid="uid://cw7jfynjoh3pd" path="res://data/res/MenuLabels.tres" id="6_j4pmt"]
+[ext_resource type="Script" path="res://scripts/ui/TitleOptionsPanel.gd" id="7_title_options_panel"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6j5qt"]
+content_margin_left = 28.0
+content_margin_top = 22.0
+content_margin_right = 28.0
+content_margin_bottom = 22.0
+bg_color = Color(0.75331914, 0.8409651, 0.9177723, 0.8235294)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="TitleScreen" type="Control" node_paths=PackedStringArray("play_button", "options_button", "exit_button", "initial_focus", "options_panel", "options_title", "options_list")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_title_screen")
+play_button = NodePath("MenuPanel/PlayButton")
+options_button = NodePath("MenuPanel/OptionsButton")
+exit_button = NodePath("MenuPanel/ExitButton")
+initial_focus = NodePath("MenuPanel/PlayButton")
+options_panel = NodePath("TitleOptionsPanel")
+options_title = NodePath("TitleOptionsPanel/OptionsRoot/OptionsTitle")
+options_list = NodePath("TitleOptionsPanel/OptionsRoot/OptionsScroll/OptionsList")
+metadata/_edit_horizontal_guides_ = [-103.0, -99.0]
+
+[node name="TitleBackgound" type="Sprite2D" parent="."]
+position = Vector2(576, 324)
+scale = Vector2(0.28125, 0.28100613)
+texture = ExtResource("2_j2lur")
+
+[node name="TitleOverlay" type="Sprite2D" parent="."]
+position = Vector2(576, 544)
+scale = Vector2(0.158, 0.158)
+texture = ExtResource("3_tbfit")
+
+[node name="MenuPanel" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -80.0
+offset_right = 100.0
+offset_bottom = 92.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="PlayButton" type="Button" parent="MenuPanel"]
+custom_minimum_size = Vector2(200, 44)
+layout_mode = 2
+focus_neighbor_top = NodePath("../ExitButton")
+focus_neighbor_bottom = NodePath("../OptionsButton")
+text = "Play"
+
+[node name="PlayLabelPreview" type="Label" parent="MenuPanel/PlayButton"]
+visible = false
+layout_mode = 0
+label_settings = ExtResource("3_selected")
+
+[node name="OptionsButton" type="Button" parent="MenuPanel"]
+custom_minimum_size = Vector2(200, 44)
+layout_mode = 2
+focus_neighbor_top = NodePath("../PlayButton")
+focus_neighbor_bottom = NodePath("../ExitButton")
+text = "Options"
+
+[node name="ExitButton" type="Button" parent="MenuPanel"]
+custom_minimum_size = Vector2(200, 44)
+layout_mode = 2
+focus_neighbor_top = NodePath("../OptionsButton")
+focus_neighbor_bottom = NodePath("../PlayButton")
+text = "Exit"
+
+[node name="ExitLabelPreview" type="Label" parent="MenuPanel/ExitButton"]
+visible = false
+layout_mode = 0
+label_settings = ExtResource("3_selected")
+
+[node name="TitleOptionsPanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(620, 580)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -310.0
+offset_top = -290.0
+offset_right = 310.0
+offset_bottom = 290.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_6j5qt")
+script = ExtResource("7_title_options_panel")
+option_background_color = Color(0.96593136, 0.95926183, 0.9553166, 0.9019608)
+scroll_bar_left_margin = 50
+scroll_bar_width = 16
+
+[node name="OptionsRoot" type="VBoxContainer" parent="TitleOptionsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="OptionsTitle" type="Label" parent="TitleOptionsPanel/OptionsRoot"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("4_options_font")
+theme_override_font_sizes/font_size = 28
+text = "OPTIONS"
+label_settings = ExtResource("6_j4pmt")
+horizontal_alignment = 1
+
+[node name="OptionsScroll" type="ScrollContainer" parent="TitleOptionsPanel/OptionsRoot"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="OptionsList" type="VBoxContainer" parent="TitleOptionsPanel/OptionsRoot/OptionsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6

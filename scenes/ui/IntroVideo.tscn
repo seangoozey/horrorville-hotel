@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/ui/VideoScreen.tscn" id="1_video_screen"]
+
+[node name="IntroVideo" instance=ExtResource("1_video_screen")]
+video_file_path = "res://data/video/hh_intro.mp4"
+next_scene_path = "res://scenes/levels/GasStation.tscn"
